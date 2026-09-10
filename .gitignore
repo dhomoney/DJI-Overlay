@@ -1,0 +1,39 @@
+# Media samples — never commit flight footage (contains GPS home coordinates)
+samples/
+*.MP4
+*.mp4
+*.m4a
+*.mp4a
+*.SRT
+!tests/fixtures/*.srt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Output
+out/
+renders/
+*.mov
+*.webm
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Claude Code local overrides
+.claude/settings.local.json
+
+# Personal agent state — not part of the public project
+MEMORY.md
+.claude/hooks/
+.claude/skills/
