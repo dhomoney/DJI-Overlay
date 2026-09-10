@@ -15,14 +15,14 @@ differentiating is what makes these numbers honest, so it is on by default.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
 
 from .srt import SrtRecord
 
-__all__ = ["TelemetryOptions", "Sample", "Track", "build_track", "haversine"]
+__all__ = ["Sample", "TelemetryOptions", "Track", "build_track", "haversine"]
 
 EARTH_RADIUS_M = 6371008.8
 
@@ -143,7 +143,7 @@ def _moving_average(values: np.ndarray, window: int) -> np.ndarray:
 def _window_frames(window_seconds: float, fps: float | None) -> int:
     if not fps or fps <= 0:
         return 1
-    return max(1, int(round(window_seconds * fps)))
+    return max(1, round(window_seconds * fps))
 
 
 def _estimate_fps(times: np.ndarray) -> float | None:

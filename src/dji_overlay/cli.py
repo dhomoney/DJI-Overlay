@@ -8,6 +8,10 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from .probe import FFmpegMissingError
+from .render.browser import available_templates
+from .render.pipeline import MODES, RenderOptions
+from .render.pipeline import render as render_clip
 from .srt import SrtParseError, parse_srt
 from .telemetry import TelemetryOptions, build_track
 from .units import UnitPrefs, format_duration
@@ -118,3 +122,125 @@ def inspect(
 
 if __name__ == "__main__":
     main()
+
+
+def _sidecar(video: Path, explicit: Path | None, suffix: str) -> Path:
+    """Find the SRT that belongs to a clip: DJI names it identically."""
+    if explicit is not None:
+        return explicit
+    for candidate in (video.with_suffix(suffix), video.with_suffix(suffix.upper())):
+        if candidate.exists():
+            return candidate
+    raise click.ClickException(
+        f"No {suffix} found next to {video.name}. Pass one with --srt."
+    )
+
+
+def _parse_home(home: str | None) -> tuple[float, float] | None:
+    if not home:
+        return None
+    try:
+        lat, lon = (float(part) for part in home.split(","))
+    except ValueError as exc:
+        raise click.ClickException("--home expects LAT,LON in decimal degrees") from exc
+    return lat, lon
+
+
+@main.command()
+@click.argument("video", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--srt", type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              help="Telemetry file. Defaults to the matching .SRT next to the video.")
+@click.option("--out", type=click.Path(dir_okay=False, path_type=Path),
+              help="Output file. Defaults to <video>_hud.<ext> beside the source.")
+@click.option("--mode", type=click.Choice(MODES), default="burn", show_default=True,
+              help="'burn' composites onto the video; 'alpha' writes a transparent track.")
+@click.option("--template", default="dji_goggles", show_default=True,
+              type=click.Choice(available_templates()))
+@click.option("--altitude-unit", type=click.Choice(["m", "ft"]), default="ft", show_default=True)
+@click.option("--speed-unit", type=click.Choice(["m/s", "km/h", "mph", "kn"]), default="mph",
+              show_default=True)
+@click.option("--vspeed-unit", type=click.Choice(["m/s", "km/h", "mph", "kn", "ft/s", "ft/min"]),
+              default="mph", show_default=True)
+@click.option("--distance-unit", type=click.Choice(["m", "km", "ft", "mi"]), default="ft",
+              show_default=True)
+@click.option("--no-msl", is_flag=True, help="Hide the sea-level altitude under the height.")
+@click.option("--home", metavar="LAT,LON", help="Override the auto-detected home point.")
+@click.option("--opacity", type=click.FloatRange(0.1, 1.0), default=1.0, show_default=True)
+@click.option("--encoder", default="auto", show_default=True,
+              help="Video encoder, or 'auto' to use NVENC when available.")
+@click.option("--crf", type=int, default=18, show_default=True)
+@click.option("--preset", default="medium", show_default=True)
+@click.option("--alpha-codec", type=click.Choice(["prores", "png"]), default="prores",
+              show_default=True, help="Transparent export format for --mode alpha.")
+@click.option("--srt-offset", type=int, default=0,
+              help="Shift telemetry by N frames, for footage trimmed after recording.")
+@click.option("--refresh-hz", type=float, default=10.0, show_default=True,
+              help="How often the readouts update. 0 renders every frame separately.")
+@click.option("--start", type=float, default=0.0, help="Start time in seconds.")
+@click.option("--duration", type=float, default=None, help="Seconds to render.")
+def render(video: Path, srt: Path | None, out: Path | None, mode: str, template: str,
+           altitude_unit: str, speed_unit: str, vspeed_unit: str, distance_unit: str,
+           no_msl: bool, home: str | None, opacity: float, encoder: str, crf: int,
+           preset: str, alpha_codec: str, srt_offset: int, refresh_hz: float,
+           start: float, duration: float | None) -> None:
+    """Render a HUD onto VIDEO."""
+    srt_path = _sidecar(video, srt, ".srt")
+
+    if out is None:
+        if mode == "alpha":
+            extension = ".mov" if alpha_codec == "prores" else "_%06d.png"
+            out = video.with_name(f"{video.stem}_overlay{extension}")
+        else:
+            out = video.with_name(f"{video.stem}_hud{video.suffix.lower()}")
+
+    options = RenderOptions(
+        mode=mode,
+        template=template,
+        units=UnitPrefs(altitude=altitude_unit, speed=speed_unit,
+                        vspeed=vspeed_unit, distance=distance_unit),
+        telemetry=TelemetryOptions(home=_parse_home(home)),
+        opacity=opacity,
+        show_msl=not no_msl,
+        encoder=encoder,
+        crf=crf,
+        preset=preset,
+        alpha_codec=alpha_codec,
+        srt_offset=srt_offset,
+        hud_refresh_hz=refresh_hz,
+        start=start,
+        duration=duration,
+    )
+
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeRemainingColumn,
+    )
+
+    try:
+        with Progress(
+            SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+            BarColumn(), TaskProgressColumn(), TimeRemainingColumn(), console=console,
+        ) as bar:
+            task = bar.add_task(f"Rendering {video.name}", total=None)
+
+            def advance(done: int, total: int) -> None:
+                bar.update(task, completed=done, total=total)
+
+            result = render_clip(video, srt_path, out, options, advance)
+    except (FFmpegMissingError, SrtParseError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    for warning in result.warnings:
+        console.print(f"[yellow]Warning[/yellow]: {warning}")
+
+    reuse = 1 - result.unique_hud_states / max(1, result.frames)
+    console.print(
+        f"[green]Wrote[/green] {result.output}\n"
+        f"  {result.frames:,} frames, {result.unique_hud_states:,} distinct HUD states "
+        f"({reuse:.0%} reused)\n"
+        f"  overlay band {result.region.width}x{result.region.height} at y={result.region.y}"
+    )

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-__all__ = ["UnitPrefs", "ALTITUDE_UNITS", "SPEED_UNITS", "VSPEED_UNITS", "DISTANCE_UNITS"]
+__all__ = ["ALTITUDE_UNITS", "DISTANCE_UNITS", "SPEED_UNITS", "VSPEED_UNITS", "UnitPrefs"]
 
 # unit name -> (multiplier applied to the SI value, display suffix, decimal places)
 ALTITUDE_UNITS: dict[str, tuple[float, str, int]] = {
@@ -118,3 +118,14 @@ def format_duration(seconds: float) -> str:
     if hours:
         return f"{hours}:{minutes:02d}:{secs:02d}"
     return f"{minutes}:{secs:02d}"
+
+
+def format_flight_clock(seconds: float) -> str:
+    """Elapsed time in DJI's own notation: 07'53"."""
+    seconds = max(0.0, seconds)
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}'{secs:02d}\""
+    return f"{minutes:02d}'{secs:02d}\""

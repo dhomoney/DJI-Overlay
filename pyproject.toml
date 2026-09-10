@@ -9,6 +9,7 @@ dependencies = [
     "numpy>=1.26",
     "click>=8.1",
     "rich>=13.7",
+    "playwright>=1.40",
 ]
 
 [project.optional-dependencies]
@@ -28,5 +29,11 @@ packages = ["src/dji_overlay"]
 line-length = 95
 src = ["src", "tests"]
 
+[tool.ruff.lint]
+# DJI writes local wall-clock timestamps with no timezone, and the SRT gives no
+# way to recover one. Attaching a tzinfo would state something we do not know.
+ignore = ["DTZ001"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: needs a real Chromium and ffmpeg"]

@@ -1,0 +1,185 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DJI Goggles HUD</title>
+<style>
+  @font-face {
+    font-family: "Barlow Semi Condensed";
+    src: url("../fonts/BarlowSemiCondensed-Bold.ttf") format("truetype");
+    font-weight: 700;
+  }
+  @font-face {
+    font-family: "Barlow Semi Condensed";
+    src: url("../fonts/BarlowSemiCondensed-SemiBold.ttf") format("truetype");
+    font-weight: 600;
+  }
+  @font-face {
+    font-family: "Barlow Semi Condensed";
+    src: url("../fonts/BarlowSemiCondensed-Medium.ttf") format("truetype");
+    font-weight: 500;
+  }
+
+  /* Every dimension is expressed in rem so the whole HUD scales with the
+     footage: --scale is set to videoHeight / 1080 before the first frame. */
+  :root {
+    --scale: 1;
+    --pad-x: 6rem;
+    --pad-y: 3.2rem;
+    --ink: #fff;
+    --dim: rgba(255, 255, 255, 0.72);
+    --shadow: 0 0.1rem 0.35rem rgba(0, 0, 0, 0.85),
+              0 0 0.9rem rgba(0, 0, 0, 0.45);
+  }
+
+  html { font-size: calc(16px * var(--scale)); }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: "Barlow Semi Condensed", sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .hud {
+    position: absolute;
+    inset: 0;
+    opacity: var(--hud-opacity, 1);
+  }
+
+  .cluster {
+    position: absolute;
+    bottom: var(--pad-y);
+    display: flex;
+    align-items: flex-end;
+    text-shadow: var(--shadow);
+    white-space: nowrap;
+  }
+
+  .cluster.left  { left: var(--pad-x); }
+  .cluster.right { right: var(--pad-x); }
+
+  /* Bottom left: vertical speed over height, ground speed over distance --
+     the arrangement DJI uses in the goggles. */
+  .telemetry {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 4.6rem;
+    row-gap: 0.35rem;
+  }
+
+  .speed {
+    font-size: 2.45rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .primary {
+    font-size: 3.35rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0.005em;
+  }
+
+  .primary .label {
+    font-weight: 700;
+    margin-right: 0.55rem;
+  }
+
+  /* Mean-sea-level altitude sits under the height it qualifies, smaller and
+     dimmer, so the number a pilot actually flies by stays dominant. */
+  .secondary {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--dim);
+    margin-top: 0.15rem;
+    margin-left: 1.9rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* Bottom right: the fields that do have a source in the SRT. Battery,
+     signal strength, bitrate, satellite count and goggles charge are not
+     recorded in the telemetry sidecar, so they are absent by design. */
+  .status {
+    display: flex;
+    align-items: baseline;
+    gap: 2.8rem;
+  }
+
+  .status .flight-time {
+    font-size: 3.35rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .status .heading {
+    font-size: 2.6rem;
+    font-weight: 600;
+  }
+
+  .status .heading .caret {
+    font-size: 1.5rem;
+    margin-right: 0.35rem;
+    color: var(--dim);
+  }
+
+  .status .clock {
+    font-size: 1.7rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.02em;
+  }
+
+  [hidden] { display: none !important; }
+</style>
+
+<div class="hud">
+  <div class="cluster left">
+    <div class="telemetry">
+      <div class="speed" id="vspeed">--</div>
+      <div class="speed" id="speed">--</div>
+      <div>
+        <div class="primary"><span class="label">H</span><span id="altitude">--</span></div>
+        <div class="secondary" id="altitude-msl" hidden>--</div>
+      </div>
+      <div>
+        <div class="primary"><span class="label">D</span><span id="distance">--</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cluster right">
+    <div class="status">
+      <div class="flight-time" id="flight-time">--</div>
+      <div class="heading" id="heading-wrap"><span class="caret">&#9650;</span><span id="heading">--</span></div>
+      <div class="clock" id="clock">--</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Called once per rendered frame. Keeping the page alive and swapping only
+  // text nodes is far cheaper than re-loading the document per frame.
+  window.applyFrame = function (values) {
+    for (const [id, value] of Object.entries(values)) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.textContent = value;
+      el.hidden = value === null || value === "";
+    }
+  };
+  window.configure = function (options) {
+    const root = document.documentElement;
+    root.style.setProperty("--scale", options.scale);
+    if (options.opacity !== undefined) {
+      root.style.setProperty("--hud-opacity", options.opacity);
+    }
+  };
+  window.hudReady = document.fonts.ready.then(() => true);
+</script>

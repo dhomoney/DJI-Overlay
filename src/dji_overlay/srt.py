@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-__all__ = ["SrtRecord", "SrtParseError", "parse_srt", "parse_srt_text"]
+__all__ = ["SrtParseError", "SrtRecord", "parse_srt", "parse_srt_text"]
 
 
 class SrtParseError(ValueError):

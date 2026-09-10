@@ -1,0 +1,13 @@
+services:
+  dji-overlay:
+    image: dhomoney/dji-overlay:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    # Output files end up owned by you rather than by root.
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - "${MEDIA_DIR:-./media}:/media"
+    working_dir: /media
+    # Chromium needs more than Docker's default 64 MB of shared memory.
+    shm_size: "1gb"

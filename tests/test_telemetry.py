@@ -2,6 +2,7 @@
 
 import math
 from datetime import datetime
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -56,7 +57,7 @@ def test_naive_differencing_would_have_produced_nonsense():
     records = synth_records(speed_mps=5.0)
     raw_peak = max(
         haversine(a.latitude, a.longitude, b.latitude, b.longitude) * FPS
-        for a, b in zip(records, records[1:])
+        for a, b in pairwise(records)
     )
     assert raw_peak > 20.0  # a 5 m/s flight appears to hit 20+ m/s unsmoothed
     assert build_track(records).max_speed < 8.0  # smoothed stays believable
