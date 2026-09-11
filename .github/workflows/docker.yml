@@ -46,3 +46,16 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The README is the image's front page on Docker Hub, and a stale one
+      # there is worse than none. Same credentials as the push: a second token
+      # scoped to descriptions is not worth the management.
+      - name: Update the Docker Hub description
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE }}
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ./README.md

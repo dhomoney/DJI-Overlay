@@ -1,5 +1,9 @@
 # DJI-Overlay
 
+[![CI](https://github.com/dhomoney/DJI-Overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/dhomoney/DJI-Overlay/actions/workflows/ci.yml)
+[![Docker Hub](https://img.shields.io/docker/v/dhomoney/dji-overlay?logo=docker&label=docker%20hub)](https://hub.docker.com/r/dhomoney/dji-overlay)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Burn the flight telemetry from your DJI `.SRT` sidecar onto your footage as a
 DJI-style HUD — height, distance from home, ground and vertical speed, heading
 and flight time — or export it as a transparent track to composite in your
