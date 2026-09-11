@@ -13,7 +13,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+web = ["fastapi>=0.110", "uvicorn>=0.27", "pydantic>=2.6"]
+dev = ["pytest>=8.0", "ruff>=0.6", "httpx>=0.27", "dji-overlay[web]"]
 
 [project.scripts]
 dji-overlay = "dji_overlay.cli:main"

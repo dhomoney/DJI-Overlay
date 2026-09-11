@@ -3,9 +3,14 @@
 # point of preferring Docker here: an identical render on any machine.
 FROM python:3.12-slim-bookworm
 
+# DJI_OVERLAY_HOST is what `serve` binds to. A container's loopback is its own,
+# so a UI bound to 127.0.0.1 in here would be unreachable through any published
+# port; restricting access is the host side's job (-p 127.0.0.1:8787:8787).
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright \
+    DJI_OVERLAY_HOST=0.0.0.0 \
+    DJI_OVERLAY_PORT=8787
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
@@ -15,7 +20,7 @@ WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 
-RUN pip install --no-cache-dir . \
+RUN pip install --no-cache-dir ".[web]" \
     && playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/* \
     # Readable by any uid, so `docker run --user $(id -u)` still finds Chromium
@@ -24,6 +29,9 @@ RUN pip install --no-cache-dir . \
 
 # Renders read and write here; mount your footage folder onto it.
 WORKDIR /media
+
+# Only used by `serve`; the CLI ignores it.
+EXPOSE 8787
 
 ENTRYPOINT ["dji-overlay"]
 CMD ["--help"]

@@ -15,9 +15,20 @@ from ..units import UnitPrefs
 from .browser import CaptureRegion, HudRenderer
 from .hud import frame_values, widest_values
 
-__all__ = ["MODES", "RenderOptions", "RenderResult", "detect_encoder", "render"]
+__all__ = [
+    "MODES",
+    "RenderCancelled",
+    "RenderOptions",
+    "RenderResult",
+    "detect_encoder",
+    "render",
+]
 
 MODES = ("burn", "alpha")
+
+
+class RenderCancelled(RuntimeError):
+    """Raised when a caller asked for the render to stop part way through."""
 
 
 @dataclass(slots=True)
@@ -186,8 +197,14 @@ def render(
     out_path: str | Path,
     options: RenderOptions | None = None,
     progress: Callable[[int, int], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> RenderResult:
-    """Render the overlay for one clip."""
+    """Render the overlay for one clip.
+
+    ``cancelled`` is polled every so many frames; when it returns True the
+    render stops, ffmpeg is torn down and the partial output is removed. A 4K
+    clip takes minutes, so anything driving this from a UI needs a way out.
+    """
     options = options or RenderOptions()
     if options.mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, got {options.mode!r}")
@@ -222,6 +239,8 @@ def render(
 
         process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         assert process.stdin is not None
+        done = 0
+        stopped = False
         try:
             hold = (
                 max(1, round(fps / options.hud_refresh_hz))
@@ -231,15 +250,30 @@ def render(
             for i, sample in enumerate(
                 _sample_stream(track, frames, first_sample, options.srt_offset, hold)
             ):
+                done = i
+                if i % 15 == 0:
+                    if cancelled is not None and cancelled():
+                        stopped = True
+                        break
+                    if progress is not None:
+                        progress(i, frames)
                 png = renderer.render(
                     frame_values(sample, track, options.units, show_msl=options.show_msl)
                 )
                 process.stdin.write(png)
-                if progress is not None and i % 15 == 0:
-                    progress(i, frames)
             process.stdin.close()
         except BrokenPipeError:
             pass  # ffmpeg died; its stderr below explains why
+
+        if stopped:
+            process.terminate()
+            process.wait()
+            if process.stderr is not None:
+                process.stderr.read()
+            # A partial file is worse than none: it looks like a finished render.
+            if "%" not in out_path.name:
+                out_path.unlink(missing_ok=True)
+            raise RenderCancelled(f"Cancelled after {done:,} of {frames:,} frames")
 
         stderr = process.stderr.read().decode(errors="replace") if process.stderr else ""
         code = process.wait()

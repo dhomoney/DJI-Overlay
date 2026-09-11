@@ -244,3 +244,56 @@ def render(video: Path, srt: Path | None, out: Path | None, mode: str, template:
         f"({reuse:.0%} reused)\n"
         f"  overlay band {result.region.width}x{result.region.height} at y={result.region.y}"
     )
+
+
+@main.command()
+@click.option(
+    "--media-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=".",
+    show_default=True,
+    help="Directory of footage to browse. Mount yours here in Docker.",
+)
+@click.option(
+    "--host",
+    envvar="DJI_OVERLAY_HOST",
+    default="127.0.0.1",
+    show_default=True,
+    help="Address to bind. The Docker image sets 0.0.0.0, because a container's "
+    "loopback is its own and nothing published would reach it otherwise.",
+)
+@click.option("--port", envvar="DJI_OVERLAY_PORT", default=8787, show_default=True)
+@click.option(
+    "--preview-width",
+    default=1280,
+    show_default=True,
+    help="Width the preview frames are rendered at.",
+)
+def serve(media_dir: Path, host: str, port: int, preview_width: int) -> None:
+    """Run the web UI against a directory of footage."""
+    try:
+        import uvicorn
+    except ModuleNotFoundError as exc:
+        raise click.ClickException(
+            "The web UI needs the optional web extra: "
+            "pip install 'dji-overlay[web]' (the Docker image has it already)."
+        ) from exc
+
+    from .web.app import create_app
+    from .web.library import LibraryError
+
+    try:
+        app = create_app(media_dir, preview_width=preview_width)
+    except LibraryError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    # 'localhost' resolves to ::1 first in most browsers, which a server bound
+    # to 127.0.0.1 never answers. Print the address that actually works.
+    shown = "127.0.0.1" if host in ("0.0.0.0", "::", "") else host
+    console.print(
+        f"[green]DJI-Overlay[/green] http://{shown}:{port}\n"
+        f"  serving [dim]{Path(media_dir).resolve()}[/dim]"
+        + (f"\n  [dim]bound to {host}, reachable from other machines[/dim]"
+           if host in ("0.0.0.0", "::") else "")
+    )
+    uvicorn.run(app, host=host, port=port, log_level="warning")

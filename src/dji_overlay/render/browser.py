@@ -107,6 +107,24 @@ class HudRenderer:
         if self._playwright is not None:
             self._playwright.stop()
 
+    def configure(self, *, opacity: float | None = None, scale: float | None = None) -> None:
+        """Change a page-level setting on an already-open renderer.
+
+        The preview reuses one Chromium instance across settings changes, so
+        opacity has to be adjustable without relaunching. Cached frames were
+        drawn with the old setting, so they go.
+        """
+        assert self._page is not None
+        if opacity is not None:
+            self.opacity = opacity
+        if scale is not None:
+            self.scale = scale
+        self._page.evaluate(
+            "opts => window.configure(opts)",
+            {"scale": self.scale, "opacity": self.opacity},
+        )
+        self._cache.clear()
+
     def measure(self, sample_values: FrameValues, padding_rem: float = 2.0) -> CaptureRegion:
         """Find the band the HUD occupies, using worst-case text.
 

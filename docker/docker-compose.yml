@@ -11,3 +11,21 @@ services:
     working_dir: /media
     # Chromium needs more than Docker's default 64 MB of shared memory.
     shm_size: "1gb"
+
+  # The web UI: browse /media, preview the HUD, queue renders.
+  #   docker compose up dji-overlay-web   ->   http://127.0.0.1:8787
+  dji-overlay-web:
+    image: dhomoney/dji-overlay:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: ["serve"]
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - "${MEDIA_DIR:-./media}:/media"
+    working_dir: /media
+    shm_size: "1gb"
+    # Published on the loopback only. The server inside binds 0.0.0.0 because it
+    # has to; restricting who can reach it is the host side's job.
+    ports:
+      - "127.0.0.1:8787:8787"

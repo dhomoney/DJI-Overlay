@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DJI-Overlay</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🛸</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>DJI&#8209;Overlay</h1>
+    <span class="root" id="media-root"></span>
+    <span class="spacer"></span>
+    <button id="refresh" class="ghost" title="Rescan the media directory">Rescan</button>
+    <span class="version" id="version"></span>
+  </header>
+
+  <main>
+    <aside class="clips">
+      <div class="aside-head">
+        <h2>Footage</h2>
+        <span class="count" id="clip-count"></span>
+      </div>
+      <ul id="clip-list" class="clip-list"></ul>
+      <p class="empty" id="clip-empty" hidden>
+        No video files here yet. Mount a folder of footage on the media
+        directory and press Rescan.
+      </p>
+    </aside>
+
+    <section class="work" id="work" hidden>
+      <div class="preview-wrap">
+        <div class="preview" id="preview-frame">
+          <img id="preview-image" alt="HUD preview">
+          <div class="preview-state" id="preview-state"></div>
+        </div>
+        <div class="scrub">
+          <input type="range" id="scrub" min="0" max="100" step="0.1" value="0">
+          <output id="scrub-time">0:00</output>
+          <span class="of" id="scrub-total">/ 0:00</span>
+        </div>
+      </div>
+
+      <div class="panels">
+        <div class="panel flight">
+          <h3 id="clip-title">—</h3>
+          <dl id="flight-facts"></dl>
+          <div id="flight-warnings"></div>
+        </div>
+
+        <form class="panel settings" id="settings">
+          <h3>Overlay</h3>
+
+          <div class="field">
+            <label for="mode">Output</label>
+            <select id="mode" name="mode">
+              <option value="burn">Burn into the video</option>
+              <option value="alpha">Transparent overlay track</option>
+            </select>
+          </div>
+
+          <div class="field" id="alpha-codec-field" hidden>
+            <label for="alpha_codec">Overlay format</label>
+            <select id="alpha_codec" name="alpha_codec">
+              <option value="prores">ProRes 4444 (.mov)</option>
+              <option value="png">PNG sequence</option>
+            </select>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="altitude_unit">Height</label>
+              <select id="altitude_unit" name="altitude_unit"></select>
+            </div>
+            <div class="field">
+              <label for="distance_unit">Distance</label>
+              <select id="distance_unit" name="distance_unit"></select>
+            </div>
+            <div class="field">
+              <label for="speed_unit">Speed</label>
+              <select id="speed_unit" name="speed_unit"></select>
+            </div>
+            <div class="field">
+              <label for="vspeed_unit">Vertical speed</label>
+              <select id="vspeed_unit" name="vspeed_unit"></select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="opacity">Opacity <span class="hint" id="opacity-value">100%</span></label>
+            <input type="range" id="opacity" name="opacity" min="0.1" max="1" step="0.05" value="1">
+          </div>
+
+          <label class="check">
+            <input type="checkbox" id="show_msl" name="show_msl" checked>
+            Show sea-level altitude under the height
+          </label>
+
+          <details>
+            <summary>Advanced</summary>
+            <div class="field">
+              <label for="home">Home point <span class="hint">lat,lon — blank auto-detects</span></label>
+              <input type="text" id="home" name="home" placeholder="auto" spellcheck="false">
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="srt_offset">Telemetry offset <span class="hint">frames</span></label>
+                <input type="number" id="srt_offset" name="srt_offset" value="0" step="1">
+              </div>
+              <div class="field">
+                <label for="refresh_hz">Readout refresh <span class="hint">Hz</span></label>
+                <input type="number" id="refresh_hz" name="refresh_hz" value="10" step="1" min="0">
+              </div>
+              <div class="field">
+                <label for="template">Template</label>
+                <select id="template" name="template"></select>
+              </div>
+              <div class="field">
+                <label for="encoder">Encoder</label>
+                <input type="text" id="encoder" name="encoder" value="auto" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="crf">Quality <span class="hint">CRF</span></label>
+                <input type="number" id="crf" name="crf" value="18" min="0" max="51">
+              </div>
+              <div class="field">
+                <label for="preset">Preset</label>
+                <input type="text" id="preset" name="preset" value="medium" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="start">Start <span class="hint">seconds</span></label>
+                <input type="number" id="start" name="start" value="0" min="0" step="0.5">
+              </div>
+              <div class="field">
+                <label for="duration">Length <span class="hint">seconds, blank = all</span></label>
+                <input type="number" id="duration" name="duration" placeholder="all" min="0" step="0.5">
+              </div>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button type="button" id="preview-here" class="ghost">Preview here</button>
+            <button type="submit" id="render" class="primary">Render</button>
+          </div>
+          <p class="out-hint" id="out-hint"></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="work placeholder" id="placeholder">
+      <p>Pick a clip to preview the HUD over it.</p>
+    </section>
+  </main>
+
+  <section class="jobs" id="jobs-section">
+    <div class="aside-head">
+      <h2>Renders</h2>
+      <span class="count" id="job-connection">connecting…</span>
+    </div>
+    <ul id="job-list" class="job-list"></ul>
+    <p class="empty" id="job-empty">Nothing rendered yet this session.</p>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

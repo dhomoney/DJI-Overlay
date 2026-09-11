@@ -5,14 +5,41 @@ DJI-style HUD — height, distance from home, ground and vertical speed, heading
 and flight time — or export it as a transparent track to composite in your
 editor.
 
-> **Status: early development.** The telemetry engine, the HUD renderer and both
-> export paths work. A web UI is next.
+> **Status: early development.** The telemetry engine, the HUD renderer, both
+> export paths and the web UI work. Nothing is published to Docker Hub yet.
 
 ## Why
 
 DJI writes three files per recording: the video, an audio track, and an `.SRT`
 full of GPS coordinates, altitude and camera settings. Nothing consumer-facing
 puts that data back onto the video. This does.
+
+## The web UI
+
+```bash
+docker run --rm --shm-size 1g -v "$PWD:/media" --user "$(id -u):$(id -g)" \
+    -p 127.0.0.1:8787:8787 dhomoney/dji-overlay:latest serve
+```
+
+Then open <http://127.0.0.1:8787>. It lists the clips in the folder you mounted,
+pairs each with its `.SRT`, and gives you a scrubber and a live preview: the
+HUD is composited onto a real frame of your footage at preview size, so you can
+see what feet-versus-metres or 70% opacity actually looks like over your own
+video before committing to a render that takes minutes. Renders queue up, one
+at a time, and report progress and an estimate; you can cancel one part way
+through and the partial file is removed.
+
+The server binds `0.0.0.0` inside the container because a container's loopback
+is its own — publishing on `127.0.0.1:8787` is what keeps it off the network.
+Natively it binds `127.0.0.1` by default:
+
+```bash
+dji-overlay serve --media-dir ~/Videos/drone
+```
+
+Use `localhost` at your peril: most browsers resolve it to `::1` first, which a
+server bound to `127.0.0.1` never answers. The address it prints is the one
+that works.
 
 ## Quick start (Docker — recommended)
 
@@ -52,6 +79,14 @@ Needs `ffmpeg` on your `PATH`.
 uv venv && uv pip install -e ".[dev]"
 playwright install chromium
 dji-overlay render DJI_0001.MP4
+```
+
+The web UI is an optional extra, because the CLI should not need a web
+framework to render a video:
+
+```bash
+uv pip install -e ".[web]"
+dji-overlay serve --media-dir .
 ```
 
 ## Usage
@@ -129,11 +164,17 @@ telemetry by a number of frames to correct it.
 ## Development
 
 ```bash
-uv pip install -e ".[dev]"
+uv pip install -e ".[dev]"      # includes the web extra
 pytest              # unit tests
-pytest -m integration   # also drives Chromium
+pytest -m integration   # also drives Chromium and ffmpeg
 ruff check src tests
 ```
+
+The layers are worth keeping straight: `srt.py` and `telemetry.py` know nothing
+about rendering, `render/` knows nothing about HTTP, and `web/` is translation
+only — paths through `web/library.py`, settings into a `RenderOptions`, job
+events out as SSE. A new front end should consume those events rather than
+reach into the pipeline.
 
 Flight footage is gitignored. The committed test fixture is a real landing with
 its coordinates shifted to a neutral location — telemetry contains the pilot's
