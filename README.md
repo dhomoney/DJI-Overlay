@@ -59,6 +59,11 @@ same name, and the result is written to `DJI_0001_hud.mp4`.
 `--shm-size 1g` matters: Chromium renders the HUD, and Docker's default 64 MB
 of shared memory is not enough for 4K.
 
+The image is published for `linux/amd64` and `linux/arm64`, so Apple Silicon
+and a Raspberry Pi both run it natively. Expect a 4K render on a Pi to be
+measured in hours, though — the HUD alone is a Chromium screenshot per distinct
+readout.
+
 ### Hardware encoding
 
 The tool uses NVENC when it is genuinely available and falls back to software
