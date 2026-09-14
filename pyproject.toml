@@ -1,6 +1,6 @@
 [project]
 name = "dji-overlay"
-version = "0.1.0"
+version = "0.1.1"
 description = "Burn DJI flight telemetry onto your footage as a DJI-style HUD"
 readme = "README.md"
 license = { file = "LICENSE" }
